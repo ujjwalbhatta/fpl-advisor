@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Player {
+  id                  Int      @id
+  name                String
+  teamId              Int
+  position            String
+  price               Decimal  @db.Decimal(4, 1)
+  form                Decimal  @db.Decimal(4, 2)
+  totalPoints         Int
+  pointsPerGame       Decimal  @db.Decimal(4, 2)
+  ictIndex            Decimal  @db.Decimal(6, 2)
+  selectedByPct       Decimal  @db.Decimal(5, 2)
+  isInjured           Boolean  @default(false)
+  injuryNews          String?
+  chanceOfPlayingNext Int?
+  minutes             Int      @default(0)
+  goalsScored         Int      @default(0)
+  assists             Int      @default(0)
+  cleanSheets         Int      @default(0)
+  bonus               Int      @default(0)
+  status              String   @default("a")
+  xgPer90             Decimal  @db.Decimal(5, 2)
+  xaPer90             Decimal  @db.Decimal(5, 2)
+  penaltiesOrder      Int?
+  updatedAt           DateTime @updatedAt
+
+  team Team @relation(fields: [teamId], references: [id])
+
+  @@map("players")
+}
+
+model Team {
+  id              Int      @id
+  name            String
+  shortName       String
+  strength        Int
+  strengthAttack  Int
+  strengthDefence Int
+
+  players         Player[]
+  homeFixtures    Fixture[] @relation("HomeTeam")
+  awayFixtures    Fixture[] @relation("AwayTeam")
+
+  @@map("teams")
+}
+
+model Fixture {
+  id              Int       @id
+  gameweek        Int
+  homeTeamId      Int
+  awayTeamId      Int
+  difficultyHome  Int
+  difficultyAway  Int
+  kickoffTime     DateTime?
+  finished        Boolean   @default(false)
+
+  homeTeam Team @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam Team @relation("AwayTeam", fields: [awayTeamId], references: [id])
+
+  @@map("fixtures")
+}
