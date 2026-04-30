@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(npm install *)",
-      "Bash(npx prisma *)"
+      "Bash(npx prisma *)",
+      "Bash(docker exec fpl-advisor-postgres-1 *)",
+      "Bash(DATABASE_URL=postgresql://fpl:fpl@localhost:5432/fpl_advisor npx prisma *)"
     ]
   }
 }
