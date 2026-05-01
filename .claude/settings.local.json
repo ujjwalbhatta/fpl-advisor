@@ -4,7 +4,21 @@
       "Bash(npm install *)",
       "Bash(npx prisma *)",
       "Bash(docker exec fpl-advisor-postgres-1 *)",
-      "Bash(DATABASE_URL=postgresql://fpl:fpl@localhost:5432/fpl_advisor npx prisma *)"
+      "Bash(DATABASE_URL=postgresql://fpl:fpl@localhost:5432/fpl_advisor npx prisma *)",
+      "Bash(xargs cat *)",
+      "Bash(curl -s \"https://fantasy.premierleague.com/api/entry/4328073/event/35/picks/\")",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s \"https://fantasy.premierleague.com/api/entry/4328073/\")",
+      "Bash(curl -s \"https://fantasy.premierleague.com/api/entry/4328073/event/34/picks/\")",
+      "Bash(curl -s \"https://fantasy.premierleague.com/api/entry/4328073/history/\")",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s \"https://fantasy.premierleague.com/api/bootstrap-static/\")",
+      "WebSearch",
+      "Bash(python3 *)",
+      "Bash(node *)",
+      "Bash(npx nest *)",
+      "Bash(curl -s \"http://localhost:3001/transfer-advice/4328073?freeTransfers=2\")",
+      "Bash(curl -s \"http://localhost:3000/transfer-advice/4328073?freeTransfers=2\")"
     ]
   }
 }
