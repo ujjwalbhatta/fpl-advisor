@@ -20,3 +20,21 @@ export interface FplPicksResponse {
   };
   picks: FplPick[];
 }
+
+export interface CaptainSuggestion {
+  playerId: number;
+  name: string;
+  reasoning: string;
+}
+
+export interface TransferSuggestion {
+  transferOut: string;
+  transferIn: string;
+  reasoning: string;
+}
+
+export interface AiAdviceResponse {
+  captainSuggestion: CaptainSuggestion;
+  suggestions: TransferSuggestion[];
+  aiSummary: string;
+}
