@@ -24,7 +24,7 @@ import { SyncScheduler } from './scheduler/sync.scheduler';
           options: {
             client: {
               clientId: 'fpl-sync-service',
-              brokers: [config.get<string>('KAFKA_BROKERS', 'localhost:9092')],
+              brokers: [config.get<string>('KAFKA_BROKERS', 'localhost:9093')],
             },
           },
         }),

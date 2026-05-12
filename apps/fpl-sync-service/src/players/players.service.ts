@@ -1,4 +1,4 @@
-import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
+import { Injectable, Inject, OnModuleInit, Logger } from '@nestjs/common';
 import { ClientKafka } from '@nestjs/microservices';
 import { PrismaService } from '@app/database';
 import { FplElement } from '../fpl-api/fpl-api.types';
@@ -19,13 +19,21 @@ const STATUS_LABEL: Record<string, string> = {
 
 @Injectable()
 export class PlayersService implements OnModuleInit {
+  private readonly logger = new Logger(PlayersService.name);
+  private kafkaReady = false;
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject('KAFKA_CLIENT') private readonly kafkaClient: ClientKafka,
   ) {}
 
   async onModuleInit() {
-    await this.kafkaClient.connect();
+    try {
+      await this.kafkaClient.connect();
+      this.kafkaReady = true;
+    } catch {
+      this.logger.warn('Kafka unavailable — price/injury events will be skipped');
+    }
   }
 
   async upsertPlayers(elements: FplElement[]): Promise<void> {
@@ -94,7 +102,7 @@ export class PlayersService implements OnModuleInit {
         },
       });
 
-      if (oldPrice !== undefined && oldPrice !== newPrice) {
+      if (this.kafkaReady && oldPrice !== undefined && oldPrice !== newPrice) {
         this.kafkaClient.emit('fpl.player.price-changed', {
           playerId: el.id,
           playerName: el.web_name,
@@ -105,7 +113,7 @@ export class PlayersService implements OnModuleInit {
         });
       }
 
-      if (oldStatus !== undefined && oldStatus !== el.status) {
+      if (this.kafkaReady && oldStatus !== undefined && oldStatus !== el.status) {
         this.kafkaClient.emit('fpl.player.injury-updated', {
           playerId: el.id,
           playerName: el.web_name,
