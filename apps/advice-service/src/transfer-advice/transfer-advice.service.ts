@@ -76,7 +76,16 @@ export class TransferAdviceService {
       }),
     );
 
-    const aiAdvice = await this.callAi(gw, freeTransfers, itb, squadWithFixtures, suggestions);
+    let captainSuggestion = null;
+    let aiSummary = null;
+
+    try {
+      const aiAdvice = await this.callAi(gw, freeTransfers, itb, squadWithFixtures, suggestions);
+      captainSuggestion = aiAdvice.captainSuggestion;
+      aiSummary = aiAdvice.aiSummary;
+    } catch {
+      aiSummary = 'AI reasoning unavailable — transfer candidates are ranked by score above.';
+    }
 
     return {
       teamId,
@@ -88,8 +97,8 @@ export class TransferAdviceService {
       chip,
       squad: squadWithFixtures,
       suggestions,
-      captainSuggestion: aiAdvice.captainSuggestion,
-      aiSummary: aiAdvice.aiSummary,
+      captainSuggestion,
+      aiSummary,
     };
   }
 
