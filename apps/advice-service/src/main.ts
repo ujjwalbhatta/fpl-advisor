@@ -4,7 +4,7 @@ import { AdviceModule } from './advice.module';
 async function bootstrap() {
   const app = await NestFactory.create(AdviceModule);
 
-  const port = process.env.PORT ?? 3002;
+  const port = process.env.ADVICE_SERVICE_PORT ?? 3002;
   await app.listen(port);
   console.log(`Advice service running on port ${port}`);
 }

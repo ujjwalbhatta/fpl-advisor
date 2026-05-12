@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Build fpl-sync-service
+        run: npm run build:fpl-sync
+
+      - name: Build advice-service
+        run: npm run build:advice
+
+      - name: Build event-consumer
+        run: npm run build:consumer
+
+      - name: Build api-gateway
+        run: npm run build:api-gateway

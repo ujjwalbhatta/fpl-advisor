@@ -3,7 +3,8 @@ import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { PrismaService } from "@app/database";
 import { CacheService } from "@app/redis";
-import { FplPicksResponse } from "./transfer-advice.dto";
+import { AiService } from "../ai/ai.service";
+import { AiAdviceResponse, FplPicksResponse } from "./transfer-advice.dto";
 
 const FPL_BASE = "https://fantasy.premierleague.com/api";
 
@@ -13,6 +14,7 @@ export class TransferAdviceService {
     private readonly http: HttpService,
     private readonly cache: CacheService,
     private readonly prisma: PrismaService,
+    private readonly ai: AiService,
   ) {}
 
   async getAdvice(teamId: number, freeTransfers: number) {
@@ -74,6 +76,8 @@ export class TransferAdviceService {
       }),
     );
 
+    const aiAdvice = await this.callAi(gw, freeTransfers, itb, squadWithFixtures, suggestions);
+
     return {
       teamId,
       gameweek: gw,
@@ -84,7 +88,77 @@ export class TransferAdviceService {
       chip,
       squad: squadWithFixtures,
       suggestions,
+      captainSuggestion: aiAdvice.captainSuggestion,
+      aiSummary: aiAdvice.aiSummary,
     };
+  }
+
+  private async callAi(
+    gw: number,
+    freeTransfers: number,
+    itb: number,
+    squad: { id: number; name: string; team: string; position: string; price: number; form: number; score: number; isStarting: boolean; fixtureSummary: { gw: number; count: number; avgFdr: number | null; isDgw: boolean; isBgw: boolean }[] }[],
+    suggestions: { transferOut: { name: string; team: string; position: string; price: number; form: number; score: number }; transferIn: { name: string; team: string; price: number; form: number; score: number; fixtureSummary: { gw: number; count: number; avgFdr: number | null; isDgw: boolean; isBgw: boolean }[] }[] }[],
+  ): Promise<AiAdviceResponse> {
+    const systemPrompt = `You are an expert Fantasy Premier League (FPL) analyst.
+Scoring factors in order of importance:
+1. Fixture difficulty next 3 GWs (FDR 1=easy, 5=hard)
+2. Current form
+3. Injury/availability
+4. Price vs points value
+5. Double/blank gameweeks
+
+Respond ONLY with valid JSON — no markdown, no explanation outside the JSON.
+Match this exact shape:
+{
+  "captainSuggestion": { "playerId": number, "name": string, "reasoning": string },
+  "suggestions": [{ "transferOut": string, "transferIn": string, "reasoning": string }],
+  "aiSummary": string
+}
+Be specific — mention fixture names, recent form scores, and FDR numbers in reasoning.`;
+
+    const startingXI = squad.filter((p) => p.isStarting).map((p) => ({
+      id: p.id,
+      name: p.name,
+      team: p.team,
+      position: p.position,
+      price: p.price,
+      form: p.form,
+      score: p.score,
+      fixtures: p.fixtureSummary.map((f) => `GW${f.gw}: ${f.isBgw ? 'BLANK' : f.isDgw ? 'DOUBLE' : ''} FDR${f.avgFdr?.toFixed(1)}`).join(', '),
+    }));
+
+    const transferOptions = suggestions.map((s) => ({
+      out: s.transferOut,
+      candidates: s.transferIn.map((c) => ({
+        name: c.name,
+        team: c.team,
+        price: c.price,
+        form: c.form,
+        score: c.score,
+        fixtures: c.fixtureSummary.map((f) => `GW${f.gw}: ${f.isBgw ? 'BLANK' : f.isDgw ? 'DOUBLE' : ''} FDR${f.avgFdr?.toFixed(1)}`).join(', '),
+      })),
+    }));
+
+    const userPrompt = `Current GW: ${gw} | Next GW: ${gw + 1}
+Free transfers: ${freeTransfers} | ITB: £${itb}m
+
+Starting XI (scored by form + fixtures):
+${JSON.stringify(startingXI, null, 2)}
+
+Transfer options (pick the best candidate for each out player):
+${JSON.stringify(transferOptions, null, 2)}
+
+Tasks:
+1. Pick the best captain from the starting XI.
+2. For each transfer option, pick the best candidate and explain why.
+3. Write a 2-3 sentence overall summary.
+
+Return JSON only.`;
+
+    const raw = await this.ai.complete(systemPrompt, userPrompt);
+    const json = raw.replace(/^```json\n?/m, '').replace(/^```\n?/m, '').replace(/```$/m, '').trim();
+    return JSON.parse(json) as AiAdviceResponse;
   }
 
   private async fetchFixtures(fromGw: number) {
@@ -127,7 +201,11 @@ export class TransferAdviceService {
     fromGw: number,
     fixtures: Awaited<ReturnType<typeof this.fetchFixtures>>,
   ) {
-    return [fromGw, fromGw + 1, fromGw + 2].map((g) => {
+    const availableGws = [...new Set(fixtures.map((f) => f.gameweek))]
+      .filter((g) => g >= fromGw && g <= fromGw + 2)
+      .sort((a, b) => a - b);
+
+    return availableGws.map((g) => {
       const gf = fixtures.filter(
         (f) => f.gameweek === g && (f.homeTeamId === teamId || f.awayTeamId === teamId)
       );

@@ -3,14 +3,13 @@ import { SyncModule } from "./sync.module";
 import { SyncScheduler } from "./scheduler/sync.scheduler";
 
 async function bootstrap() {
-  const app = await NestFactory.create(SyncModule);
+  const app = await NestFactory.createApplicationContext(SyncModule);
 
   const scheduler = app.get(SyncScheduler);
   await scheduler.syncAll();
   await scheduler.syncInjuries();
 
-  const port = process.env.PORT ?? 3001;
-  await app.listen(port);
+  console.log("FPL sync service running — cron jobs active");
 }
 
 bootstrap();
