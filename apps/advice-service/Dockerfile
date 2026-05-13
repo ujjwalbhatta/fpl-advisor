@@ -1,7 +1,5 @@
-FROM node:20-slim AS builder
+FROM node:20-alpine AS builder
 WORKDIR /app
-
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
 COPY nest-cli.json tsconfig.json ./
@@ -13,10 +11,8 @@ RUN npm install
 RUN npm run db:generate
 RUN npm run build:advice
 
-FROM node:20-slim
+FROM node:20-alpine
 WORKDIR /app
-
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
