@@ -29,7 +29,7 @@ FPL data gets pulled every hour. Any price or injury change fires a Kafka event 
 3. `event-consumer` picks up those events and invalidates the relevant Redis keys
 4. When you hit `/transfer-advice/:teamId`, `api-gateway` forwards the request to `advice-service`
 5. `advice-service` scores every player in your squad, finds the weakest starters, ranks replacements, then sends the data to Groq
-6. Groq returns plain-English reasoning citing specific fixtures, form numbers, and FDR values
+6. Groq returns plain-English reasoning specific fixtures, form numbers, and FDR values
 
 ---
 
@@ -112,8 +112,6 @@ npm run start:advice
 npm run start:api-gateway
 ```
 
-Wait for `fpl-sync` to log `Synced X players and Y fixtures` before hitting any endpoints. That first sync takes about 10–15 seconds.
-
 Swagger docs at `http://localhost:3000/api`
 
 ---
@@ -142,7 +140,7 @@ Availability
   Penalty taker →  +8 for first, +3 for second
 ```
 
-The Groq model receives this scored data and writes reasoning in plain English — citing real fixture names, form figures, and FDR values rather than just returning a number.
+The Groq model receives this scored data and writes reasoning in plain English.
 
 ---
 
