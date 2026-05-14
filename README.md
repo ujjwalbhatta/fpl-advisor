@@ -5,7 +5,6 @@ I'm a massive FPL nerd. So I built something that actually helps me play.
 Give it your team ID and it tells you exactly who to transfer this gameweek and why — not just a score, but actual reasoning based on fixture difficulty, form, blank gameweeks, and double gameweeks.
 
 **Live demo → [fpl-demo-six.vercel.app](https://fpl-demo-six.vercel.app)**
-https://github.com/ujjwalbhatta/fpl-advisor/blob/main/FPL_Architecture.mov
 ---
 
 ## Demo
