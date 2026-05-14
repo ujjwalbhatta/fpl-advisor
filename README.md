@@ -9,9 +9,7 @@ Give it your team ID and it tells you exactly who to transfer this gameweek and 
 
 ## Demo
 
-<video src="FPL_Architecture.mov" controls width="100%"></video>
-
-
+Demo link-> https://youtu.be/z7vFZ9N2Opg
 
 ---
 
