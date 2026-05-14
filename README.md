@@ -1,41 +1,53 @@
 # FPL Transfer Advisor
 
-An AI-powered Fantasy Premier League assistant API. Give it your FPL team ID and it returns transfer suggestions with written reasoning not only with a score, but why.
+I'm a massive FPL nerd. So I built something that actually helps me play.
 
-Built as a production-style monorepo to demonstrate event-driven architecture, Redis caching, Kafka messaging, scheduled data pipelines, and Groq AI reasoning.
+Give it your team ID and it tells you exactly who to transfer this gameweek and why — not just a score, but actual reasoning based on fixture difficulty, form, blank gameweeks, and double gameweeks.
 
-## Architecture
+**Live demo → [fpl-demo-six.vercel.app](https://fpl-demo-six.vercel.app)**
 
-[FPL Public API]
-      │
-      ▼  every hour via @Cron
-[fpl-sync-service]          pulls players, fixtures, teams → PostgreSQL
-      │                     detects price/injury changes
-      ▼
-[Kafka]                     fpl.player.price-changed
-      │                     fpl.player.injury-updated
-      ▼
-[event-consumer]            invalidates Redis cache on change
+---
 
-[api-gateway] :3000         public HTTP entry point
-      │
-      ▼
-[advice-service] :3002      scoring algorithm + Groq AI reasoning
-      │
-      ├── GET /top-picks
-      └── GET /transfer-advice/:teamId
+## Demo
 
+<video src="FPL_Architecture.mov" controls width="100%"></video>
+
+---
+
+## System Architecture
+
+![FPL Advisor Architecture](FPL_Architecture.jpg)
+
+FPL data gets pulled every hour. Any price or injury change fires a Kafka event which invalidates the Redis cache. Every advice request goes through the scoring algorithm before Groq writes the plain-English reasoning.
+
+---
+
+## How It Works
+
+1. `fpl-sync-service` polls the FPL public API every hour and writes players, fixtures, and teams to PostgreSQL
+2. If a player's price or status changed since the last sync, it fires a Kafka event
+3. `event-consumer` picks up those events and invalidates the relevant Redis keys
+4. When you hit `/transfer-advice/:teamId`, `api-gateway` forwards the request to `advice-service`
+5. `advice-service` scores every player in your squad, finds the weakest starters, ranks replacements, then sends the data to Groq
+6. Groq returns plain-English reasoning citing specific fixtures, form numbers, and FDR values
+
+---
 
 ## Stack
-Framework | NestJS + TypeScript 
-Database | PostgreSQL via Prisma ORM
-Cache | Redis 
-Messaging | Kafka 
-Scheduler | @nestjs/schedule 
-AI | Groq (llama-3.3-70b) 
-Infra | Docker Compose 
 
-## Getting Started
+| Layer | Tech |
+|---|---|
+| Framework | NestJS + TypeScript |
+| Database | PostgreSQL via Prisma |
+| Cache | Redis |
+| Messaging | Kafka |
+| Scheduler | @nestjs/schedule |
+| AI | Groq — llama-3.3-70b-versatile |
+| Infra | Docker Compose |
+
+---
+
+## Running It Locally
 
 ### Prerequisites
 
@@ -45,92 +57,100 @@ Infra | Docker Compose
 ### 1. Clone and install
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/ujjwalbhatta/fpl-advisor
 cd fpl-advisor
 npm install
 ```
 
-### 2. Configure environment
+### 2. Environment variables
 
 ```bash
 cp .env.example .env
 ```
 
-Fill in your values:
+Fill in `.env`:
 
-```bash
+```
 DATABASE_URL=postgresql://fpl:fpl@localhost:5432/fpl_advisor
 REDIS_URL=redis://localhost:6379
 KAFKA_BROKERS=localhost:9093
 KAFKA_GROUP_ID=fpl-advisor-group
-GROQ_API_KEY=your_groq_api_key        # free at console.groq.com
+GROQ_API_KEY=your_key_here        # free at console.groq.com
 ADVICE_SERVICE_PORT=3002
 ADVICE_SERVICE_URL=http://localhost:3002
 FPL_BASE_URL=https://fantasy.premierleague.com/api
 ```
 
 ### 3. Start infrastructure
-docker-compose up -d
-
-
-### 4. Apply database schema
-npm run db:generate
-npm run db:push
-
-### 5. Run services (4 terminals)
 
 ```bash
-# Terminal 1 — syncs FPL data to DB, runs cron jobs
+docker-compose up -d
+```
+
+### 4. Set up the database
+
+```bash
+npm run db:generate
+npm run db:push
+```
+
+### 5. Run the four services
+
+Open four terminals:
+
+```bash
+# Terminal 1 — pulls FPL data every hour, fires Kafka events on changes
 npm run start:fpl-sync
 
-# Terminal 2 — Kafka consumer, invalidates Redis on changes
+# Terminal 2 — Kafka consumer, invalidates Redis cache on price/injury changes
 npm run start:consumer
 
-# Terminal 3 — AI reasoning layer
+# Terminal 3 — scoring algorithm + Groq AI reasoning
 npm run start:advice
 
-# Terminal 4 — public API
+# Terminal 4 — public API gateway
 npm run start:api-gateway
 ```
 
-Wait for `fpl-sync` to log `Synced X players and Y fixtures` before hitting the endpoints.
+Wait for `fpl-sync` to log `Synced X players and Y fixtures` before hitting any endpoints. That first sync takes about 10–15 seconds.
 
----
+Swagger docs at `http://localhost:3000/api`
 
-## API
-
-Swagger UI available at `http://localhost:3000/api`
-
-## Project Structure
-
-```
-fpl-advisor/
-├── apps/
-│   ├── api-gateway/          public HTTP entry point (port 3000)
-│   ├── advice-service/       scoring + AI reasoning (port 3002)
-│   ├── fpl-sync-service/     FPL API poller + Kafka producer
-│   └── event-consumer/       Kafka consumer, Redis cache invalidation
-├── libs/
-│   ├── database/             PrismaService, DatabaseModule
-│   ├── redis/                CacheService, RedisModule
-│   └── shared-types/         shared interfaces and Kafka event types
-├── prisma/schema.prisma
-├── docker-compose.yml
-└── .github/workflows/ci.yml
-```
 ---
 
 ## Scoring Algorithm
 
-Each player gets a numeric score used to rank top picks and identify weak squad spots:
+Each player gets a numeric score. Top picks and weakest-squad detection both use this.
 
 ```
-form × 3              capped at 30
-fixture difficulty    FDR 1 = easy (+30 pts), FDR 5 = hard (+6 pts)
-                      weighted across next 3 GWs (1.0 / 0.7 / 0.4)
-DGW bonus             fixture score doubled for double gameweeks
-BGW penalty           −15 for blank gameweeks
-availability          +5 if fully fit, −15 if ≤50% chance, −30 if injured
+Position-specific base score
+  GKP  →  clean sheets (heavy) + ppg + form
+  DEF  →  clean sheets + form + xG/xA + goals/assists + penalty bonus
+  MID  →  form + ppg + xG/xA + ICT index + penalty bonus
+  FWD  →  form + xG per 90 (heavy) + xA + goals/assists + penalty bonus
+
+Fixture score (next 3 GWs, weighted 1.0 / 0.7 / 0.4)
+  FDR 1 (easy)  →  +30 pts
+  FDR 5 (hard)  →  +6 pts
+  DGW           →  fixture score doubled
+  BGW           →  −15 pts
+
+Availability
+  Fully fit     →  +5
+  ≤50% chance   →  −15
+  Injured       →  −30
+  Penalty taker →  +8 for first, +3 for second
 ```
 
-The AI receives this scored data and writes the reasoning, citing specific fixture names, form numbers, and FDR values rather than just returning a number.
+The Groq model receives this scored data and writes reasoning in plain English — citing real fixture names, form figures, and FDR values rather than just returning a number.
+
+---
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/top-picks` | Best players by position for the current GW |
+| GET | `/transfer-advice/:teamId` | Transfer suggestions + captain pick for your squad |
+
+Full Swagger docs at `http://localhost:3000/api`

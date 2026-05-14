@@ -95,10 +95,10 @@ export class TransferAdviceService {
       itb,
       squadValue,
       chip,
-      squad: squadWithFixtures,
-      suggestions,
-      captainSuggestion,
       aiSummary,
+      captainSuggestion,
+      suggestions,
+      squad: squadWithFixtures,
     };
   }
 

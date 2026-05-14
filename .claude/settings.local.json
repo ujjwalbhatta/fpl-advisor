@@ -21,7 +21,8 @@
       "Bash(curl -s \"http://localhost:3000/transfer-advice/4328073?freeTransfers=2\")",
       "Bash(npm run *)",
       "Bash(docker-compose ps *)",
-      "Bash(ps *)"
+      "Bash(ps *)",
+      "Bash(git -C /Users/ujjwalbhatta/FPL/fpl-advisor diff README.md)"
     ]
   }
 }
